@@ -1,0 +1,30 @@
+# 환경 설정 (API 키 포함 — 절대 커밋 금지)
+.env
+.streamlit/secrets.toml
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+env/
+
+# 번역 중간 파일
+*_parsed.json
+*_style.json
+*_priority.json
+*_translated.json
+*_reviewed.json
+*_review_report.json
+
+# 번역 결과물 (로컬 전용)
+*_kr.md
+*_kr.html
+paper_figures/
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>논문번역 에이전트 설계서</title>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f8f9fa;
+    --sidebar-bg: #1e2130;
+    --sidebar-text: #a8b2c8;
+    --sidebar-active: #7c9cf5;
+    --sidebar-hover: #2d3348;
+    --accent: #5b7fdb;
+    --accent-light: #eef2ff;
+    --text: #1a1d2e;
+    --text-muted: #6b7280;
+    --border: #e5e7eb;
+    --code-bg: #f1f3f8;
+    --card-bg: #ffffff;
+    --header-bg: #1e2130;
+    --tag-bg: #dde5ff;
+    --tag-text: #3b5bdb;
+    --sidebar-width: 280px;
+    --header-height: 56px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Noto Sans KR', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.75;
+  }
+
+  /* ─── Header ─── */
+  header {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: var(--header-height);
+    background: var(--header-bg);
+    display: flex;
+    align-items: center;
+    padding: 0 24px;
+    z-index: 100;
+    gap: 16px;
+    box-shadow: 0 1px 8px rgba(0,0,0,.3);
+  }
+  header h1 {
+    font-size: 15px;
+    font-weight: 600;
+    color: #ffffff;
+    letter-spacing: -0.01em;
+  }
+  .header-meta {
+    font-size: 12px;
+    color: #7a8299;
+    margin-left: auto;
+    display: flex;
+    gap: 16px;
+  }
+  .badge {
+    background: var(--accent);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 99px;
+    letter-spacing: 0.02em;
+  }
+
+  /* ─── Sidebar ─── */
+  #sidebar {
+    position: fixed;
+    top: var(--header-height);
+    left: 0;
+    bottom: 0;
+    width: var(--sidebar-width);
+    background: var(--sidebar-bg);
+    overflow-y: auto;
+    padding: 20px 0 40px;
+    z-index: 90;
+  }
+  #sidebar::-webkit-scrollbar { width: 4px; }
+  #sidebar::-webkit-scrollbar-thumb { background: #3a3f55; border-radius: 2px; }
+
+  .toc-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #4a5268;
+    padding: 0 20px 8px;
+  }
+
+  .toc-item {
+    display: block;
+    padding: 5px 20px 5px 20px;
+    font-size: 13px;
+    color: var(--sidebar-text);
+    text-decoration: none;
+    border-left: 2px solid transparent;
+    transition: all 0.15s;
+    cursor: pointer;
+    user-select: none;
+  }
+  .toc-item:hover {
+    background: var(--sidebar-hover);
+    color: #d0d8f0;
+  }
+  .toc-item.active {
+    color: var(--sidebar-active);
+    border-left-color: var(--sidebar-active);
+    background: rgba(124,156,245,.08);
+    font-weight: 500;
+  }
+  .toc-item.level-2 { padding-left: 36px; font-size: 12px; }
+  .toc-item.level-3 { padding-left: 52px; font-size: 11.5px; color: #7a8299; }
+
+  /* ─── Main Content ─── */
+  main {
+    margin-left: var(--sidebar-width);
+    margin-top: var(--header-height);
+    padding: 48px 64px 80px;
+    max-width: 900px;
+  }
+
+  /* ─── Typography ─── */
+  #content h1 {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--text);
+    margin: 48px 0 16px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid var(--accent);
+    letter-spacing: -0.02em;
+    line-height: 1.3;
+  }
+  #content h1:first-child { margin-top: 0; }
+
+  #content h2 {
+    font-size: 19px;
+    font-weight: 700;
+    color: var(--text);
+    margin: 36px 0 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  #content h3 {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--accent);
+    margin: 28px 0 8px;
+  }
+  #content h4 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin: 20px 0 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  #content p {
+    margin: 10px 0;
+    font-size: 14.5px;
+    color: #2d3142;
+  }
+
+  #content ul, #content ol {
+    margin: 10px 0 10px 20px;
+    font-size: 14.5px;
+  }
+  #content li { margin: 4px 0; }
+
+  #content strong { color: #1a1d2e; font-weight: 700; }
+
+  #content code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    background: var(--code-bg);
+    color: #c0392b;
+    padding: 1px 5px;
+    border-radius: 4px;
+    border: 1px solid #e0e4ef;
+  }
+
+  #content pre {
+    background: #1e2130;
+    border-radius: 10px;
+    padding: 20px 24px;
+    overflow-x: auto;
+    margin: 16px 0;
+    position: relative;
+    box-shadow: 0 4px 16px rgba(0,0,0,.15);
+  }
+  #content pre code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    background: transparent;
+    color: #a8d8a8;
+    border: none;
+    padding: 0;
+    line-height: 1.7;
+  }
+
+  /* ─── Tables ─── */
+  #content table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 13.5px;
+    background: var(--card-bg);
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 1px 4px rgba(0,0,0,.06);
+  }
+  #content thead tr {
+    background: var(--accent);
+    color: #fff;
+  }
+  #content th {
+    padding: 11px 16px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: 0.02em;
+  }
+  #content td {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  #content tbody tr:hover { background: var(--accent-light); }
+  #content tbody tr:last-child td { border-bottom: none; }
+
+  /* ─── Blockquote / callout ─── */
+  #content blockquote {
+    border-left: 4px solid var(--accent);
+    background: var(--accent-light);
+    margin: 16px 0;
+    padding: 12px 20px;
+    border-radius: 0 8px 8px 0;
+    font-size: 14px;
+    color: #374099;
+  }
+
+  /* ─── Section cards ─── */
+  .section-card {
+    background: var(--card-bg);
+    border-radius: 12px;
+    padding: 24px 28px;
+    margin: 24px 0;
+    box-shadow: 0 1px 6px rgba(0,0,0,.07);
+    border: 1px solid var(--border);
+  }
+
+  /* ─── Horizontal rule ─── */
+  #content hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 36px 0;
+  }
+
+  /* ─── Checklist ─── */
+  #content input[type="checkbox"] {
+    margin-right: 6px;
+    accent-color: var(--accent);
+  }
+
+  /* ─── Scroll progress ─── */
+  #progress {
+    position: fixed;
+    top: var(--header-height);
+    left: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #5b7fdb, #7c9cf5);
+    z-index: 200;
+    transition: width 0.1s;
+  }
+
+  /* ─── Back-to-top ─── */
+  #top-btn {
+    position: fixed;
+    bottom: 32px;
+    right: 32px;
+    width: 42px;
+    height: 42px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 50%;
+    font-size: 18px;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(91,127,219,.4);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s;
+  }
+  #top-btn:hover { transform: scale(1.1); }
+
+  @media (max-width: 900px) {
+    #sidebar { display: none; }
+    main { margin-left: 0; padding: 32px 24px 60px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- 진행 바 -->
+<div id="progress"></div>
+
+<!-- 헤더 -->
+<header>
+  <span style="font-size:20px;">🔬</span>
+  <h1>논문번역 에이전트 설계서</h1>
+  <span class="badge">v1.1</span>
+  <div class="header-meta">
+    <span>자연과학 (물리·화학)</span>
+    <span>Claude Code Agent</span>
+    <span>2026-03-01</span>
+  </div>
+</header>
+
+<!-- 사이드바 TOC -->
+<nav id="sidebar">
+  <div class="toc-label">목차</div>
+  <div id="toc"></div>
+</nav>
+
+<!-- 본문 -->
+<main>
+  <div id="content"></div>
+</main>
+
+<!-- 맨 위로 버튼 -->
+<button id="top-btn" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
+
+<script>
+const MD = `# 논문번역 에이전트 설계서
+
+## 1. 프로젝트 개요
+
+### 1.1 핵심 가치 명제
+기존 DeepL·Google Translate는 논문의 **구조적 무결성**을 보존하지 못한다.
+두 단 레이아웃이 뒤섞이거나, 수식·그림·표가 번역 중 소실되거나, 전문 용어가 맥락 없이 번역되는 문제를 해결한다.
+
+**이 에이전트의 차별점:**
+- 섹션·수식·그림·표 구조를 원문 그대로 유지한 채 번역
+- 저자의 문체(어조·문장 길이·서술 패턴)까지 한국어로 승계
+- 전문 용어를 원어 병기로 처리하여 학문적 정밀도 유지
+- 논문 간 용어 일관성을 위한 지속적 용어집 관리
+
+### 1.2 사용 컨텍스트
+- **사용자**: 단일 사용자 (개인 연구 보조 도구)
+- **대상 분야**: 자연과학 (물리·화학 중심, 수식 집약적)
+- **대상 언어**: 영어로 작성된 논문 (비영어 논문은 지원 범위 외)
+- **워크플로우**: 논문 PDF 입력 → 15~30분 대기 → 번역된 Markdown/HTML 파일로 읽기
+- **실행 환경**: Claude Code Agent 대화창에서 PDF 경로 입력으로 실행 (슬래시 커맨드 또는 자연어 인식)
+
+---
+
+## 2. 시스템 아키텍처
+
+### 2.1 멀티 에이전트 파이프라인
+
+\`\`\`
+[사용자] PDF 경로 입력
+    ↓
+[Orchestrator Agent]  ← 전체 파이프라인 제어 / 에러 핸들링 / 재개 여부 판단
+    ├─→ [Parsing Agent]         PDF → 구조화 JSON (Marker 신뢰도 기반 폴백)
+    ├─→ [Style Analysis Agent]  원문 전문 용어 밀도·수식 집약도 분석 → 번역 지침 생성
+    ├─→ [Priority Agent]        섹션 중요도 분석 → 배정 결과 파일 저장 → 사용자 확인 후 시작
+    ├─→ [Translation Agent]     섹션별 번역 (우선순위 기반 모델 선택, 청크 내 용어 일관성 관리)
+    ├─→ [Reviewer Agent]        번역 품질 검증 → 이슈 시 자동 재번역 시도
+    └─→ [Reconstruction Agent]  Markdown + HTML 생성 (부분 재실행 지원)
+    ↓
+[출력] paper_kr.md + paper_kr.html + paper_figures/ (PDF와 같은 폴더)
+\`\`\`
+
+### 2.2 에이전트 간 데이터 흐름
+
+모든 에이전트는 **중간 JSON 파일**을 통해 데이터를 주고받는다.
+중간 파일이 이미 존재하면 해당 단계를 건너뛰어 **부분 재실행**이 가능하다.
+
+\`\`\`
+paper.pdf
+  → paper_parsed.json        (Parsing Agent 출력)
+  → paper_style.json         (Style Analysis Agent 출력)
+  → paper_priority.json      (Priority Agent 출력 → 사용자가 직접 편집 가능)
+  → paper_translated.json    (Translation Agent 출력)
+  → paper_reviewed.json      (Reviewer Agent 출력)
+  → paper_kr.md              (Reconstruction Agent 최종 출력)
+  → paper_kr.html            (Reconstruction Agent 최종 출력)
+  → paper_figures/           (Parsing Agent가 추출한 그림 파일 폴더)
+  → paper_review_report.json (이슈 있을 때만 생성)
+\`\`\`
+
+---
+
+## 3. 에이전트별 역할 명세
+
+### 3.1 Orchestrator Agent
+- 전체 파이프라인 순서 제어
+- **시작 시 재개 여부 판단**: 중간 JSON 파일이 존재하면 사용자에게 "처음부터 시작 / 이어서 시작" 선택 질문
+- 각 단계 성공/실패 감지 및 로깅
+- 에러 발생 시 폴백 전략 실행
+- 콘솔 진행 상황 실시간 출력 (섹션 완료 시마다 처리 페이지 수 + 소요 시간 표시)
+
+**재개 흐름:**
+\`\`\`
+중간 파일 감지
+  → "이전 작업이 있습니다. 이어서 시작할까요? [Y/n]"
+  → Y: 가장 마지막 완료 단계 이후부터 실행
+  → n: 모든 중간 파일 삭제 후 처음부터 실행
+\`\`\`
+
+### 3.2 Parsing Agent
+
+**주 전략: Marker 라이브러리 (ML 기반 PDF→Markdown)**
+- marker-pdf 라이브러리로 PDF를 구조화된 Markdown으로 변환
+- 두 단(two-column) 레이아웃 자동 인식 및 읽기 순서 복원
+- 수식 추출: LaTeX 블록으로 보존
+- 그림·표 감지: 위치 메타데이터 포함하여 기록
+- **그림 파일 저장**: paper_figures/ 폴더를 생성하여 PNG로 추출 저장
+
+**폴백 트리거: Marker 신뢰도 점수**
+- 임계값 미만 시 해당 페이지만 Vision으로 자동 전환
+- 전체 신뢰도가 심각하게 낮으면 논문 전체를 Vision으로 폴백
+- **DRM 보호 PDF**: Marker 실패 시 자동으로 Vision 폴백 적용 (OCR 방식)
+
+### 3.3 Style Analysis Agent ✨ 신규
+
+번역 전 원문의 **전문 용어 밀도 및 수식 집약도**를 분석하여 Translation Agent에 번역 지침으로 주입한다.
+
+| 분석 항목 | 내용 |
+|---|---|
+| 수식 집약도 | 전체 텍스트 대비 수식 블록 비율 |
+| 전문 용어 밀도 | 섹션당 신규 전문 용어 등장 빈도 |
+| 분야 성격 | equation-heavy / narrative-heavy / mixed |
+
+### 3.4 Priority Agent
+
+Abstract를 먼저 분석하여 논문의 핵심 연구 주제를 파악한 뒤, 각 섹션의 중요도를 \`high | medium | low\`로 배정한다.
+
+**배정 완료 후 사용자 확인 흐름:**
+1. paper_priority.json 파일에 배정 결과 저장
+2. 콘솔에 배정 결과 목록 출력
+3. "수정 사항이 있으면 paper_priority.json을 직접 편집 후 Enter를 누르세요." 대기
+4. 사용자가 JSON을 편집하거나 그냥 Enter를 누르면 Translation Agent 시작
+
+| 섹션 유형 | 기본 우선순위 | 비고 |
+|---|---|---|
+| Abstract | high | 항상 고품질 필수 |
+| Introduction | high | 맥락 이해의 핵심 |
+| Methods / Experimental | high | 재현성에 중요 |
+| Results | high | 핵심 발견 기술 |
+| Discussion / Conclusion | high | 해석과 의의 |
+| Supplementary Material | low | 세부 보조 자료 (사용자 재지정 가능) |
+| Appendix | low | 부록 |
+| References | medium | 구조 보존 필요 |
+
+### 3.5 Translation Agent
+
+- 섹션 단위로 분할하여 컨텍스트 윈도우 관리
+- 우선순위에 따른 모델 선택: **high → claude-sonnet-4-6**, **low/medium → claude-haiku-4-5** (API 비용 최적화)
+- 번역 시작 전 용어집(glossary.json) + no_translate.txt 로드하여 프롬프트에 주입
+
+**긴 섹션 청킹 전략:**
+- 섹션이 컨텍스트 윈도우를 초과하는 경우 서브섹션(3.1, 3.2 등) 단위로 분할
+- 각 청크 번역 시 프롬프트에 주입: 전역 용어집 + 이전 청크까지 확정된 신규 용어 목록
+
+**번역 8대 원칙:**
+
+1. **유창성 우선**: 직역이 어색할 경우 적극적으로 의역
+2. **저자 문체 승계**: Style Analysis 결과 반영, 수식 집약형은 수식 주변 설명 간결하게 유지
+3. **전문 용어**: \`한국어 번역(원어)\` 형식으로 초출 시 병기
+4. **번역 불가 용어**: no_translate.txt에 등록된 용어는 원어 그대로 유지
+5. **수식**: 번역하지 않음. LaTeX 블록 원문 그대로 보존
+6. **그림 캡션**: 번역. Figure N → 그림 N으로 통일
+7. **표 내용**: 모든 표 텍스트 번역 + 원어 병기 (예: 활성화 에너지(Activation Energy))
+8. **참고문헌**: 논문 제목은 번역, 저자명·학술지명은 원어 유지
+
+### 3.6 Reviewer Agent
+
+번역 완료 후 검증하고 이슈가 발견되면 자동 재번역을 시도한다.
+
+| 이슈 심각도 | 대응 |
+|---|---|
+| Critical (누락 단락, 섹션 통째 누락) | 해당 섹션 Translation Agent로 자동 재번역 (최대 2회) |
+| 재번역 후에도 실패 | 원문 + 번역문을 병렬 표시, 사용자 판단에 맡김 |
+| Warning (용어 불일치, 반복 단락) | paper_review_report.json 기록 후 계속 진행 |
+
+### 3.7 Reconstruction Agent
+
+검증된 번역 JSON에서 최종 파일 두 가지를 생성한다.
+**용어집 충돌 수정 후 이 에이전트만 단독 재실행하여 출력 파일을 업데이트할 수 있다.**
+
+- **Markdown**: 섹션 구조 보존, 수식 LaTeX 유지, paper_figures/ 상대 경로 그림, 표 번역 포함
+- **HTML**: MathJax 렌더링 + Sidebar TOC + 앵커 링크 + hover tooltip (단일 컬럼, 탐색성 우선)
+
+---
+
+## 4. 용어집 관리 시스템
+
+### 4.1 파일 구조 및 위치
+
+**경로 설정**: CLAUDE.md에 GLOSSARY_PATH 환경변수로 지정 (Windows 환경 대응)
+
+\`\`\`
+$GLOSSARY_PATH/
+  glossary.json        ← 분야별 용어 번역 (영구 공유)
+  no_translate.txt     ← 번역하지 않는 용어 목록 (영구 공유)
+\`\`\`
+
+**no_translate.txt 형식 (1행당 1용어):**
+\`\`\`
+laser
+transformer
+plasma
+photon
+qubit
+\`\`\`
+
+### 4.2 용어집 충돌 해결 프로세스
+
+번역 완료 후 **포스트 프로세싱** 단계에서 충돌을 감지하여 사용자에게 일괄 제시한다.
+
+\`\`\`
+번역 완료
+  → 용어집-번역문 간 충돌 목록 추출
+  → 콘솔에 충돌 목록 출력
+      [충돌] 'state': 용어집='상태', 이번 번역='준위'
+      → 어느 쪽을 사용할까요? [1=용어집, 2=이번 번역, 3=스킵]
+  → 사용자가 항목별로 선택
+  → paper_translated.json에 반영
+  → Reconstruction Agent만 재실행 (md/html 업데이트)
+\`\`\`
+
+### 4.3 운용 방식
+1. **번역 시작 전**: 해당 분야 용어집 + no_translate.txt 로드 → 각 Agent 프롬프트에 삽입
+2. **번역 완료 후**: 충돌 해결 프로세스 실행, 신규 용어 자동 추가
+3. **다음 논문**: 동일 분야 번역 시 기존 용어집 재사용하여 논문 간 일관성 유지
+
+---
+
+## 5. 파일 입출력 명세
+
+### 5.1 입력
+\`\`\`
+"이 논문 번역해줘: /path/to/paper.pdf"
+또는 /translate-paper /path/to/paper.pdf
+
+Supplementary Material이 별도 PDF인 경우:
+"이 논문 번역해줘: /path/to/paper.pdf /path/to/supplementary.pdf"
+→ 주 논문과 동일한 파이프라인으로 연속 처리
+\`\`\`
+
+### 5.2 중간 파일
+\`\`\`
+paper_parsed.json
+paper_style.json            ← 문체 분석 결과
+paper_priority.json         ← 섹션 우선순위 (사용자가 직접 편집 가능)
+paper_translated.json
+paper_reviewed.json
+paper_review_report.json    ← 이슈 있을 때만 생성
+\`\`\`
+
+### 5.3 최종 출력
+\`\`\`
+paper_kr.md           ← Obsidian / VS Code (수식 렌더링 포함)
+paper_kr.html         ← 브라우저 (MathJax + Sidebar TOC)
+paper_figures/        ← 논문에서 추출한 그림 파일 (PNG)
+\`\`\`
+
+---
+
+## 6. 오류 처리 전략
+
+| 오류 상황 | 대응 방식 |
+|---|---|
+| Marker 신뢰도 점수 임계값 미만 (페이지 단위) | 해당 페이지만 Claude Vision으로 자동 전환 |
+| Marker 전체 실패 | 논문 전체를 Claude Vision으로 폴백, 콘솔 알림 |
+| DRM 보호 PDF (텍스트 추출 불가) | Claude Vision으로 자동 폴백 (OCR 방식) |
+| API 타임아웃 | 해당 섹션 최대 3회 재시도 후 스킵 + 로그 기록 |
+| Reviewer Critical 이슈 탐지 | 해당 섹션 자동 재번역 (최대 2회) |
+| 재번역 후에도 Critical 이슈 | 원문 + 착오 번역문을 병렬 표시, 사용자 판단 |
+| Reviewer Warning 이슈 탐지 | paper_review_report.json 기록 후 계속 진행 |
+| 용어집 파일 없음 | 빈 용어집으로 자동 시작, 신규 생성 |
+| 실행 중 사용자 중단 (Ctrl+C) | 중간 JSON 보존, 다음 실행 시 이어서/처음부터 선택 |
+
+---
+
+## 7. 에이전트 실행 인터페이스
+
+### 7.1 실행 방법 (둘 다 지원)
+
+\`\`\`
+# 슬래시 커맨드
+/translate-paper /path/to/paper.pdf
+
+# 자연어 인식 (기본)
+이 논문 번역해줘: /path/to/paper.pdf
+\`\`\`
+
+### 7.2 콘솔 실행 예시
+\`\`\`
+[논문번역 에이전트] 시작합니다.
+파일: /papers/quantum_entanglement.pdf
+
+이전 작업 데이터가 발견되었습니다.
+→ [1] 이어서 시작  [2] 처음부터 다시 시작
+선택: _
+
+[1/6] Parsing Agent 실행 중...
+  ✓ Marker 파싱 완료 (신뢰도: 0.92)
+  ✓ 섹션 12개, 수식 87개, 그림 6개 추출
+  ✓ paper_figures/ 폴더 생성 (PNG 6개)
+
+[2/6] Style Analysis Agent 실행 중...
+  ✓ 문체 분류: equation-heavy (수식 비율 38%)
+  ✓ 전문 용어 밀도: high
+
+[3/6] Priority Agent 실행 중...
+  ✓ 배정 완료:
+     Abstract       → high (Sonnet)
+     Introduction   → high (Sonnet)
+     Methods        → high (Sonnet)
+     Supplementary  → low  (Haiku)
+  paper_priority.json 저장됨. 편집 후 Enter → 번역 시작: _
+
+[4/6] Translation Agent 실행 중...
+  [1/7 섹션] Abstract 번역 완료 (42초, 잔여 ~14분)
+  [2/7 섹션] Introduction 번역 완료 (2분 11초, 잔여 ~12분)
+  → 신규 용어 확정: 얽힘(entanglement), 큐비트(qubit) 등 14개
+
+[5/6] Reviewer Agent 실행 중...
+  ✓ 용어 일관성 검증 통과
+  [충돌] 'state': 용어집='상태', 이번 번역='준위'
+  → [1=상태, 2=준위, 3=스킵]: _
+
+[6/6] Reconstruction Agent 실행 중...
+  ✓ paper_kr.md 생성 완료
+  ✓ paper_kr.html 생성 완료 (Sidebar TOC 포함)
+
+완료! 총 소요 시간: 18분 42초
+\`\`\`
+
+---
+
+## 8. 구현 로드맵
+
+### Phase 1: 핵심 파이프라인 MVP
+- [ ] Parsing Agent: Marker 연동 + 구조화 JSON 출력 + paper_figures/ 생성
+- [ ] Translation Agent: 섹션 단위 번역 + 용어집 주입 + 표 전체 번역(원어 병기)
+- [ ] Reconstruction Agent: Markdown 출력 (상대 경로 그림 포함)
+- [ ] Orchestrator: 파이프라인 기본 제어 + 콘솔 진행 표시
+
+### Phase 2: 품질 강화
+- [ ] Style Analysis Agent: 수식 집약도 및 전문 용어 밀도 분석
+- [ ] Priority Agent: 자동 배정 + 사용자 확인 단계
+- [ ] Marker 신뢰도 점수 기반 페이지 단위 Vision 폴백
+- [ ] Reviewer Agent: 용어 일관성 + 누락/반복 탐지 + 자동 재번역
+- [ ] HTML 출력: MathJax + Sidebar TOC + 앵커 링크
+
+### Phase 3: 운용 편의성
+- [ ] 용어집 충돌 해결 포스트 프로세싱
+- [ ] no_translate.txt 지원 및 GLOSSARY_PATH 환경변수 설정
+- [ ] 부분 재실행 지원 (Reconstruction Agent 단독 실행)
+- [ ] 실행 중단 후 재개 기능
+- [ ] Supplementary Material 별도 PDF 연속 처리
+- [ ] Reviewer 이슈 리포트 + 원문-번역 병렬 표시
+
+---
+
+## 9. 핵심 설계 트레이드오프
+
+| 결정 항목 | 최종 선택 | 포기한 것 |
+|---|---|---|
+| 유창성 vs 충실도 | **유창성 우선 (의역)** | 원문과 1:1 직접 대조의 어려움 |
+| 단일 vs 멀티 에이전트 | **멀티 에이전트** | 구현 복잡도 증가 |
+| 즉시 응답 vs 품질 | **15~30분 수용** | 즉각적인 피드백 없음 |
+| 수식 번역 vs 보존 | **보존 (번역 제외)** | 수식 주변 설명과의 흐름 단절 가능성 |
+| 저자 문체 vs 균일 가독성 | **저자 문체 승계 (수식 집약도 반영)** | 복잡한 원문은 한국어도 복잡하게 읽힘 |
+| 표 원문 유지 vs 전체 번역 | **전체 번역 + 원어 병기** | 번역 비용·시간 증가 |
+| HTML 두 단 레이아웃 vs 탐색성 | **Sidebar TOC 우선 (단일 컬럼)** | PDF 원문과 시각적 일치 포기 |
+| 용어집 일관성 vs 맥락 적합성 | **포스트 프로세싱으로 사용자가 결정** | 완전 자동화의 편의성 |
+| 비용 균등 vs 비용 최적화 | **우선순위 연동 모델 선택** | 저우선순위 섹션 품질 일부 희생 |
+
+---
+
+## 10. 기술 스택 참고
+
+| 구성 요소 | 선택 기술 |
+|---|---|
+| 에이전트 프레임워크 | Claude Code Agent SDK |
+| PDF 파싱 (주) | marker-pdf Python 라이브러리 (신뢰도 점수 기반 폴백) |
+| PDF 파싱 (폴백) | Claude API vision (DRM PDF 포함) |
+| 번역 모델 (고우선순위) | claude-sonnet-4-6 |
+| 번역 모델 (저우선순위) | claude-haiku-4-5 |
+| 문체 분석 | Claude API (Parsing 결과 기반 분석) |
+| 수식 렌더링 (HTML) | MathJax CDN |
+| HTML 탐색 | Sidebar TOC (JavaScript + CSS 고정 사이드바) |
+| 에이전트 간 통신 | 중간 JSON 파일 |
+| 용어집 저장 | glossary.json (영구, 논문 간 공유) |
+| 번역 불가 용어 | no_translate.txt (영구, 논문 간 공유) |
+| 그림 파일 | paper_figures/ 폴더 (PNG, 상대 경로 참조) |
+| 경로 설정 | CLAUDE.md에 GLOSSARY_PATH 환경변수 |
+`;
+
+// ─── 마크다운 렌더링 ───
+marked.setOptions({ breaks: true, gfm: true });
+document.getElementById('content').innerHTML = marked.parse(MD);
+
+// ─── TOC 생성 ───
+const headings = document.querySelectorAll('#content h1, #content h2, #content h3');
+const toc = document.getElementById('toc');
+
+headings.forEach((h, i) => {
+  const id = 'section-' + i;
+  h.id = id;
+
+  const level = parseInt(h.tagName[1]);
+  const link = document.createElement('a');
+  link.className = `toc-item level-${level}`;
+  link.textContent = h.textContent;
+  link.href = '#' + id;
+  link.addEventListener('click', e => {
+    e.preventDefault();
+    h.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+  toc.appendChild(link);
+});
+
+// ─── 활성 TOC 항목 ───
+const tocLinks = document.querySelectorAll('.toc-item');
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      tocLinks.forEach(l => l.classList.remove('active'));
+      const active = toc.querySelector(`[href="#${entry.target.id}"]`);
+      if (active) active.classList.add('active');
+    }
+  });
+}, { rootMargin: '-10% 0px -80% 0px' });
+
+headings.forEach(h => observer.observe(h));
+
+// ─── 스크롤 진행 바 & 맨 위로 버튼 ───
+const progressEl = document.getElementById('progress');
+const topBtn = document.getElementById('top-btn');
+
+window.addEventListener('scroll', () => {
+  const scrolled = window.scrollY;
+  const total = document.body.scrollHeight - window.innerHeight;
+  progressEl.style.width = (scrolled / total * 100) + '%';
+  topBtn.style.display = scrolled > 400 ? 'flex' : 'none';
+});
+</script>
+</body>
+</html>
