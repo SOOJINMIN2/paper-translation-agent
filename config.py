@@ -5,9 +5,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # ── Gemini 모델 설정 ──────────────────────────────────────────────
-HIGH_PRIORITY_MODEL = os.environ.get("HIGH_PRIORITY_MODEL", "gemini-2.0-flash")
-LOW_PRIORITY_MODEL  = os.environ.get("LOW_PRIORITY_MODEL",  "gemini-2.0-flash")
-VISION_MODEL        = os.environ.get("VISION_MODEL",        "gemini-2.0-flash")
+HIGH_PRIORITY_MODEL = os.environ.get("HIGH_PRIORITY_MODEL", "gemini-1.5-flash")
+LOW_PRIORITY_MODEL  = os.environ.get("LOW_PRIORITY_MODEL",  "gemini-1.5-flash")
+VISION_MODEL        = os.environ.get("VISION_MODEL",        "gemini-1.5-flash")
 
 # ── 파이프라인 설정 ───────────────────────────────────────────────
 MARKER_CONFIDENCE_THRESHOLD = float(os.environ.get("MARKER_THRESHOLD", "0.7"))
